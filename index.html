@@ -7,6 +7,8 @@
         #status { margin: 10px; font-family: Arial; }
         #controls { margin: 10px; }
     </style>
+    <!-- Load PeerJS in head with defer -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js" defer></script>
 </head>
 <body>
     <div id="status">Connecting...</div>
@@ -18,188 +20,182 @@
     </div>
 
     <script>
-        // Check if PeerJS loaded
-        console.log('Checking if PeerJS is available...');
-        if (typeof Peer === 'undefined') {
-            console.error('PeerJS failed to load!');
-            document.getElementById('status').textContent = 'Error: PeerJS not loaded. Check console.';
-        } else {
+        // Wait for page and PeerJS to load
+        window.addEventListener('load', () => {
+            console.log('Page loaded, checking PeerJS...');
+            if (typeof Peer === 'undefined') {
+                console.error('PeerJS failed to load!');
+                document.getElementById('status').textContent = 'Error: PeerJS not loaded. Check console.';
+                return;
+            }
             console.log('PeerJS loaded successfully.');
-        }
 
-        // WebRTC setup with custom ID and timeout
-        const peer = new Peer('pong-player-' + Math.random().toString(36).substr(2, 9), {
-            host: '0.peerjs.com',
-            port: 9000,
-            path: '/peerjs'
-        });
-        let conn = null;
-        let isHost = false;
-
-        // Connection timeout
-        setTimeout(() => {
-            if (document.getElementById('status').textContent === 'Connecting...') {
-                console.error('PeerJS connection timed out');
-                document.getElementById('status').textContent = 'Error: Connection timed out';
-            }
-        }, 10000); // 10 seconds
-
-        // Debug PeerJS connection
-        peer.on('open', (id) => {
-            console.log('Peer connection established. Your Peer ID:', id);
-            document.getElementById('status').textContent = 
-                `Your Peer ID: ${id} - Share this with your friend`;
-        });
-
-        peer.on('error', (err) => {
-            console.error('PeerJS Error:', err.type, err.message);
-            document.getElementById('status').textContent = 
-                `Error: ${err.type} - ${err.message}`;
-        });
-
-        peer.on('disconnected', () => {
-            console.log('Disconnected from PeerJS server');
-            document.getElementById('status').textContent = 'Disconnected. Trying to reconnect...';
-        });
-
-        // Game setup
-        let gameState = {
-            ball: { x: 400, y: 200, dx: 5, dy: 5 },
-            leftPaddle: { y: 150, dy: 0 },
-            rightPaddle: { y: 150, dy: 0 },
-            leftScore: 0,
-            rightScore: 0,
-            running: false
-        };
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const PADDLE_HEIGHT = 100;
-        const PADDLE_WIDTH = 10;
-        const BALL_SIZE = 10;
-        let isLeftPlayer = false;
-
-        // Initial render to test canvas
-        console.log('Testing initial canvas render...');
-        ctx.fillStyle = 'black';
-        ctx.fillRect(0, 0, 800, 400);
-        ctx.fillStyle = 'white';
-        ctx.fillText('Loading...', 350, 200);
-        console.log('Initial render complete');
-
-        peer.on('connection', (connection) => {
-            conn = connection;
-            isHost = true;
-            isLeftPlayer = true;
-            setupConnection();
-            document.getElementById('status').textContent = 'Connected as Player 1 (Left)';
-        });
-
-        function connectToPeer() {
-            const peerId = document.getElementById('peerId').value;
-            conn = peer.connect(peerId);
-            isLeftPlayer = false;
-            setupConnection();
-            document.getElementById('status').textContent = 'Connected as Player 2 (Right)';
-        }
-
-        function setupConnection() {
-            conn.on('data', (data) => {
-                if (data.type === 'gameState' && !isHost) {
-                    gameState = data.state;
-                } else if (data.type === 'paddleMove') {
-                    if (isHost) gameState.rightPaddle.y = data.y;
-                    else gameState.leftPaddle.y = data.y;
-                }
+            // WebRTC setup
+            const peer = new Peer('pong-player-' + Math.random().toString(36).substr(2, 9), {
+                host: '0.peerjs.com',
+                port: 9000,
+                path: '/peerjs'
             });
-        }
+            let conn = null;
+            let isHost = false;
 
-        document.addEventListener('keydown', (e) => {
-            const speed = 10;
-            let paddle = isLeftPlayer ? gameState.leftPaddle : gameState.rightPaddle;
-            switch(e.key) {
-                case 'ArrowUp': paddle.dy = -speed; break;
-                case 'ArrowDown': paddle.dy = speed; break;
-            }
-            if (conn) conn.send({ type: 'paddleMove', y: paddle.y + paddle.dy });
-        });
+            setTimeout(() => {
+                if (document.getElementById('status').textContent === 'Connecting...') {
+                    console.error('PeerJS connection timed out');
+                    document.getElementById('status').textContent = 'Error: Connection timed out';
+                }
+            }, 10000);
 
-        document.addEventListener('keyup', (e) => {
-            let paddle = isLeftPlayer ? gameState.leftPaddle : gameState.rightPaddle;
-            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') paddle.dy = 0;
-        });
+            peer.on('open', (id) => {
+                console.log('Peer connection established. Your Peer ID:', id);
+                document.getElementById('status').textContent = 
+                    `Your Peer ID: ${id} - Share this with your friend`;
+            });
 
-        function update() {
-            if (!gameState.running) return;
-            if (isHost) {
-                gameState.leftPaddle.y += gameState.leftPaddle.dy;
-                gameState.rightPaddle.y += gameState.rightPaddle.dy;
-                gameState.leftPaddle.y = Math.max(0, Math.min(400 - PADDLE_HEIGHT, gameState.leftPaddle.y));
-                gameState.rightPaddle.y = Math.max(0, Math.min(400 - PADDLE_HEIGHT, gameState.rightPaddle.y));
-                gameState.ball.x += gameState.ball.dx;
-                gameState.ball.y += gameState.ball.dy;
-                if (gameState.ball.y <= 0 || gameState.ball.y >= 400) gameState.ball.dy *= -1;
-                if (gameState.ball.x <= PADDLE_WIDTH && 
-                    gameState.ball.y >= gameState.leftPaddle.y && 
-                    gameState.ball.y <= gameState.leftPaddle.y + PADDLE_HEIGHT) {
-                    gameState.ball.dx *= -1;
-                }
-                if (gameState.ball.x >= 800 - PADDLE_WIDTH && 
-                    gameState.ball.y >= gameState.rightPaddle.y && 
-                    gameState.ball.y <= gameState.rightPaddle.y + PADDLE_HEIGHT) {
-                    gameState.ball.dx *= -1;
-                }
-                if (gameState.ball.x <= 0) {
-                    gameState.rightScore++;
-                    resetBall();
-                }
-                if (gameState.ball.x >= 800) {
-                    gameState.leftScore++;
-                    resetBall();
-                }
-                if (conn) conn.send({ type: 'gameState', state: gameState });
-            }
-        }
+            peer.on('error', (err) => {
+                console.error('PeerJS Error:', err.type, err.message);
+                document.getElementById('status').textContent = 
+                    `Error: ${err.type} - ${err.message}`;
+            });
 
-        function draw() {
-            console.log('Drawing frame...');
+            peer.on('disconnected', () => {
+                console.log('Disconnected from PeerJS server');
+                document.getElementById('status').textContent = 'Disconnected. Trying to reconnect...';
+            });
+
+            // Game setup
+            let gameState = {
+                ball: { x: 400, y: 200, dx: 5, dy: 5 },
+                leftPaddle: { y: 150, dy: 0 },
+                rightPaddle: { y: 150, dy: 0 },
+                leftScore: 0,
+                rightScore: 0,
+                running: false
+            };
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const PADDLE_HEIGHT = 100;
+            const PADDLE_WIDTH = 10;
+            const BALL_SIZE = 10;
+            let isLeftPlayer = false;
+
+            // Force initial render
+            console.log('Rendering initial canvas...');
             ctx.fillStyle = 'black';
             ctx.fillRect(0, 0, 800, 400);
             ctx.fillStyle = 'white';
-            ctx.fillRect(0, gameState.leftPaddle.y, PADDLE_WIDTH, PADDLE_HEIGHT);
-            ctx.fillRect(800 - PADDLE_WIDTH, gameState.rightPaddle.y, PADDLE_WIDTH, PADDLE_HEIGHT);
-            ctx.fillRect(gameState.ball.x - BALL_SIZE/2, gameState.ball.y - BALL_SIZE/2, BALL_SIZE, BALL_SIZE);
-            ctx.font = '30px Arial';
-            ctx.fillText(gameState.leftScore, 200, 50);
-            ctx.fillText(gameState.rightScore, 600, 50);
-            console.log('Frame drawn');
-        }
+            ctx.fillText('Loading...', 350, 200);
 
-        function gameLoop() {
-            update();
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
+            peer.on('connection', (connection) => {
+                conn = connection;
+                isHost = true;
+                isLeftPlayer = true;
+                setupConnection();
+                document.getElementById('status').textContent = 'Connected as Player 1 (Left)';
+            });
 
-        function resetBall() {
-            gameState.ball.x = 400;
-            gameState.ball.y = 200;
-            gameState.ball.dx = 5 * (Math.random() > 0.5 ? 1 : -1);
-            gameState.ball.dy = 5 * (Math.random() > 0.5 ? 1 : -1);
-        }
-
-        function startGame() {
-            if (conn) {
-                gameState.running = true;
-                resetBall();
-            } else {
-                alert('Please connect to a peer first!');
+            function connectToPeer() {
+                const peerId = document.getElementById('peerId').value;
+                conn = peer.connect(peerId);
+                isLeftPlayer = false;
+                setupConnection();
+                document.getElementById('status').textContent = 'Connected as Player 2 (Right)';
             }
-        }
 
-        gameLoop();
+            function setupConnection() {
+                conn.on('data', (data) => {
+                    if (data.type === 'gameState' && !isHost) {
+                        gameState = data.state;
+                    } else if (data.type === 'paddleMove') {
+                        if (isHost) gameState.rightPaddle.y = data.y;
+                        else gameState.leftPaddle.y = data.y;
+                    }
+                });
+            }
+
+            document.addEventListener('keydown', (e) => {
+                const speed = 10;
+                let paddle = isLeftPlayer ? gameState.leftPaddle : gameState.rightPaddle;
+                switch(e.key) {
+                    case 'ArrowUp': paddle.dy = -speed; break;
+                    case 'ArrowDown': paddle.dy = speed; break;
+                }
+                if (conn) conn.send({ type: 'paddleMove', y: paddle.y + paddle.dy });
+            });
+
+            document.addEventListener('keyup', (e) => {
+                let paddle = isLeftPlayer ? gameState.leftPaddle : gameState.rightPaddle;
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') paddle.dy = 0;
+            });
+
+            function update() {
+                if (!gameState.running) return;
+                if (isHost) {
+                    gameState.leftPaddle.y += gameState.leftPaddle.dy;
+                    gameState.rightPaddle.y += gameState.rightPaddle.dy;
+                    gameState.leftPaddle.y = Math.max(0, Math.min(400 - PADDLE_HEIGHT, gameState.leftPaddle.y));
+                    gameState.rightPaddle.y = Math.max(0, Math.min(400 - PADDLE_HEIGHT, gameState.rightPaddle.y));
+                    gameState.ball.x += gameState.ball.dx;
+                    gameState.ball.y += gameState.ball.dy;
+                    if (gameState.ball.y <= 0 || gameState.ball.y >= 400) gameState.ball.dy *= -1;
+                    if (gameState.ball.x <= PADDLE_WIDTH && 
+                        gameState.ball.y >= gameState.leftPaddle.y && 
+                        gameState.ball.y <= gameState.leftPaddle.y + PADDLE_HEIGHT) {
+                        gameState.ball.dx *= -1;
+                    }
+                    if (gameState.ball.x >= 800 - PADDLE_WIDTH && 
+                        gameState.ball.y >= gameState.rightPaddle.y && 
+                        gameState.ball.y <= gameState.rightPaddle.y + PADDLE_HEIGHT) {
+                        gameState.ball.dx *= -1;
+                    }
+                    if (gameState.ball.x <= 0) {
+                        gameState.rightScore++;
+                        resetBall();
+                    }
+                    if (gameState.ball.x >= 800) {
+                        gameState.leftScore++;
+                        resetBall();
+                    }
+                    if (conn) conn.send({ type: 'gameState', state: gameState });
+                }
+            }
+
+            function draw() {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, 800, 400);
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, gameState.leftPaddle.y, PADDLE_WIDTH, PADDLE_HEIGHT);
+                ctx.fillRect(800 - PADDLE_WIDTH, gameState.rightPaddle.y, PADDLE_WIDTH, PADDLE_HEIGHT);
+                ctx.fillRect(gameState.ball.x - BALL_SIZE/2, gameState.ball.y - BALL_SIZE/2, BALL_SIZE, BALL_SIZE);
+                ctx.font = '30px Arial';
+                ctx.fillText(gameState.leftScore, 200, 50);
+                ctx.fillText(gameState.rightScore, 600, 50);
+            }
+
+            function gameLoop() {
+                update();
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+
+            function resetBall() {
+                gameState.ball.x = 400;
+                gameState.ball.y = 200;
+                gameState.ball.dx = 5 * (Math.random() > 0.5 ? 1 : -1);
+                gameState.ball.dy = 5 * (Math.random() > 0.5 ? 1 : -1);
+            }
+
+            function startGame() {
+                if (conn) {
+                    gameState.running = true;
+                    resetBall();
+                } else {
+                    alert('Please connect to a peer first!');
+                }
+            }
+
+            gameLoop();
+        });
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js" 
-            onload="console.log('PeerJS script loaded successfully')" 
-            onerror="console.error('Failed to load PeerJS script')"></script>
 </body>
 </html>
