@@ -18,10 +18,31 @@
     </div>
 
     <script>
-        // WebRTC setup with default PeerJS server
-        const peer = new Peer(); // Use default server (0.peerjs.com)
+        // Check if PeerJS loaded
+        console.log('Checking if PeerJS is available...');
+        if (typeof Peer === 'undefined') {
+            console.error('PeerJS failed to load!');
+            document.getElementById('status').textContent = 'Error: PeerJS not loaded. Check console.';
+        } else {
+            console.log('PeerJS loaded successfully.');
+        }
+
+        // WebRTC setup with custom ID and timeout
+        const peer = new Peer('pong-player-' + Math.random().toString(36).substr(2, 9), {
+            host: '0.peerjs.com',
+            port: 9000,
+            path: '/peerjs'
+        });
         let conn = null;
         let isHost = false;
+
+        // Connection timeout
+        setTimeout(() => {
+            if (document.getElementById('status').textContent === 'Connecting...') {
+                console.error('PeerJS connection timed out');
+                document.getElementById('status').textContent = 'Error: Connection timed out';
+            }
+        }, 10000); // 10 seconds
 
         // Debug PeerJS connection
         peer.on('open', (id) => {
@@ -31,12 +52,17 @@
         });
 
         peer.on('error', (err) => {
-            console.error('PeerJS Error:', err);
+            console.error('PeerJS Error:', err.type, err.message);
             document.getElementById('status').textContent = 
                 `Error: ${err.type} - ${err.message}`;
         });
 
-        // Rest of the game code (unchanged from your last version)
+        peer.on('disconnected', () => {
+            console.log('Disconnected from PeerJS server');
+            document.getElementById('status').textContent = 'Disconnected. Trying to reconnect...';
+        });
+
+        // Game setup
         let gameState = {
             ball: { x: 400, y: 200, dx: 5, dy: 5 },
             leftPaddle: { y: 150, dy: 0 },
@@ -51,6 +77,14 @@
         const PADDLE_WIDTH = 10;
         const BALL_SIZE = 10;
         let isLeftPlayer = false;
+
+        // Initial render to test canvas
+        console.log('Testing initial canvas render...');
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, 800, 400);
+        ctx.fillStyle = 'white';
+        ctx.fillText('Loading...', 350, 200);
+        console.log('Initial render complete');
 
         peer.on('connection', (connection) => {
             conn = connection;
@@ -127,6 +161,7 @@
         }
 
         function draw() {
+            console.log('Drawing frame...');
             ctx.fillStyle = 'black';
             ctx.fillRect(0, 0, 800, 400);
             ctx.fillStyle = 'white';
@@ -136,6 +171,7 @@
             ctx.font = '30px Arial';
             ctx.fillText(gameState.leftScore, 200, 50);
             ctx.fillText(gameState.rightScore, 600, 50);
+            console.log('Frame drawn');
         }
 
         function gameLoop() {
@@ -162,6 +198,8 @@
 
         gameLoop();
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js" 
+            onload="console.log('PeerJS script loaded successfully')" 
+            onerror="console.error('Failed to load PeerJS script')"></script>
 </body>
 </html>
