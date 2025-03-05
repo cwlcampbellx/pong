@@ -18,12 +18,8 @@
     </div>
 
     <script>
-        // WebRTC setup with explicit server
-        const peer = new Peer({
-            host: 'peerjs-server.herokuapp.com',
-            secure: true,
-            port: 443
-        });
+        // WebRTC setup with default PeerJS server
+        const peer = new Peer(); // Use default server (0.peerjs.com)
         let conn = null;
         let isHost = false;
 
@@ -36,10 +32,11 @@
 
         peer.on('error', (err) => {
             console.error('PeerJS Error:', err);
-            document.getElementById('status').textContent = `Error: ${err.type} - Check console`;
+            document.getElementById('status').textContent = 
+                `Error: ${err.type} - ${err.message}`;
         });
 
-        // Rest of your existing code remains the same...
+        // Rest of the game code (unchanged from your last version)
         let gameState = {
             ball: { x: 400, y: 200, dx: 5, dy: 5 },
             leftPaddle: { y: 150, dy: 0 },
