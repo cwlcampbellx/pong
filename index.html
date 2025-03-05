@@ -28,23 +28,15 @@
             }
             console.log('PeerJS loaded successfully.');
 
-            // WebRTC setup with alternative server and debug
+            // WebRTC setup with default server and reconnection
             const peer = new Peer('pong-player-' + Math.random().toString(36).substr(2, 9), {
-                host: 'peerjs-server.herokuapp.com', // Alternative server
-                secure: true,
-                port: 443,
-                path: '/',
-                debug: 3 // Enable detailed logging (1 = errors, 2 = warnings, 3 = all)
+                host: '0.peerjs.com',
+                port: 9000,
+                path: '/peerjs',
+                debug: 3 // Detailed logging
             });
             let conn = null;
             let isHost = false;
-
-            setTimeout(() => {
-                if (document.getElementById('status').textContent === 'Connecting...') {
-                    console.error('PeerJS connection timed out');
-                    document.getElementById('status').textContent = 'Error: Connection timed out';
-                }
-            }, 10000);
 
             peer.on('open', (id) => {
                 console.log('Peer connection established. Your Peer ID:', id);
@@ -59,8 +51,9 @@
             });
 
             peer.on('disconnected', () => {
-                console.log('Disconnected from PeerJS server');
-                document.getElementById('status').textContent = 'Disconnected. Trying to reconnect...';
+                console.log('Disconnected from PeerJS server. Attempting to reconnect...');
+                document.getElementById('status').textContent = 'Disconnected. Reconnecting...';
+                peer.reconnect(); // Attempt to reconnect
             });
 
             // Game setup
