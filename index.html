@@ -7,7 +7,6 @@
         #status { margin: 10px; font-family: Arial; }
         #controls { margin: 10px; }
     </style>
-    <!-- Load PeerJS in head with defer -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js" defer></script>
 </head>
 <body>
@@ -20,7 +19,6 @@
     </div>
 
     <script>
-        // Wait for page and PeerJS to load
         window.addEventListener('load', () => {
             console.log('Page loaded, checking PeerJS...');
             if (typeof Peer === 'undefined') {
@@ -30,11 +28,13 @@
             }
             console.log('PeerJS loaded successfully.');
 
-            // WebRTC setup
+            // WebRTC setup with alternative server and debug
             const peer = new Peer('pong-player-' + Math.random().toString(36).substr(2, 9), {
-                host: '0.peerjs.com',
-                port: 9000,
-                path: '/peerjs'
+                host: 'peerjs-server.herokuapp.com', // Alternative server
+                secure: true,
+                port: 443,
+                path: '/',
+                debug: 3 // Enable detailed logging (1 = errors, 2 = warnings, 3 = all)
             });
             let conn = null;
             let isHost = false;
@@ -79,7 +79,6 @@
             const BALL_SIZE = 10;
             let isLeftPlayer = false;
 
-            // Force initial render
             console.log('Rendering initial canvas...');
             ctx.fillStyle = 'black';
             ctx.fillRect(0, 0, 800, 400);
