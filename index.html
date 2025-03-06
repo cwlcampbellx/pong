@@ -28,9 +28,9 @@
             }
             console.log('PeerJS loaded successfully.');
 
-            // WebRTC setup with default server and reconnection
+            // WebRTC setup with alternative server and reconnection delay
             const peer = new Peer('pong-player-' + Math.random().toString(36).substr(2, 9), {
-                host: '0.peerjs.com',
+                host: 'peerjs.rogersmj.com', // Alternative server
                 port: 9000,
                 path: '/peerjs',
                 debug: 3 // Detailed logging
@@ -51,9 +51,9 @@
             });
 
             peer.on('disconnected', () => {
-                console.log('Disconnected from PeerJS server. Attempting to reconnect...');
-                document.getElementById('status').textContent = 'Disconnected. Reconnecting...';
-                peer.reconnect(); // Attempt to reconnect
+                console.log('Disconnected. Trying again in 5 seconds...');
+                document.getElementById('status').textContent = 'Disconnected. Reconnecting in 5 seconds...';
+                setTimeout(() => peer.reconnect(), 5000); // Wait 5 seconds before reconnecting
             });
 
             // Game setup
